@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VanPass — Transporte Escolar de Confiança</title>
+  <meta name="description" content="VanPass — Plataforma para motoristas e pais de transporte escolar" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #F9F7F2; color: #1A1A1A; }
+    input, select, textarea, button { font-family: inherit; font-size: 14px; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid #F5C400; outline-offset: 1px; }
+    details summary { list-style: none; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const initialDB = {
+      motoristas: [
+        { id:"m1", cnpj:"12.345.678/0001-90", empresa:"Van do João", cidade:"São Paulo", escola:"Escola Municipal Girassol", vagas:3, vagasTotal:8, valor:350 },
+        { id:"m2", cnpj:"98.765.432/0001-10", empresa:"Transporte Escolar Silva", cidade:"São Paulo", escola:"Colégio Estadual Boa Vista", vagas:1, vagasTotal:10, valor:420 },
+      ],
+      pais: [
+        { id:"p1", cpf:"111.222.333-44", nome:"Carlos Ferreira" },
+        { id:"p2", cpf:"555.666.777-88", nome:"Ana Souza" },
+      ],
+      contratos: [
+        { id:"c1", motoristaId:"m1", paiId:"p1", aluno:"Lucas Ferreira", valor:350, status:"ativo",
+          pagamentos:[{mes:"Jan/2025",status:"pago"},{mes:"Fev/2025",status:"pago"},{mes:"Mar/2025",status:"atrasado"}] },
+      ],
+      inadimplentes: [
+        { cpf:"555.666.777-88", nome:"Ana Souza", motoristaId:"m1", empresa:"Van do João", valor:420, meses:2, obs:"Não responde mensagens" }
+      ],
+      avaliacoes: [
+        { motoristaId:"m1", paiId:"p1", nota:5, comentario:"Ótimo motorista, pontual e cuidadoso!", data:"2025-03-10" },
+        { motoristaId:"m1", paiId:"p2", nota:4, comentario:"Bom serviço, às vezes atrasa um pouco.", data:"2025-02-15" },
+        { motoristaId:"m2", paiId:"p1", nota:4, comentario:"Muito atencioso com as crianças.", data:"2025-03-01" },
+      ],
+      solicitacoes: [],
+    };
+
+    function loadDB() {
+      try { const r = localStorage.getItem("vanpass_db"); return r ? JSON.parse(r) : initialDB; }
+      catch { return initialDB; }
+    }
+    function saveDB(db) { try { localStorage.setItem("vanpass_db", JSON.stringify(db)); } catch {} }
+
+    const C = {
+      yellow:"#F5C400", yellowHover:"#FFD740", yellowDark:"#B38F00",
+      black:"#1A1A1A", graphite:"#3D3D3D", white:"#FFFFFF",
+      bg:"#F9F7F2", border:"#E8E4DC", textMuted:"#6B6860",
+      success:{bg:"#EAF3DE",text:"#27500A",border:"#C0DD97"},
+      danger:{bg:"#FCEBEB",text:"#791F1F",border:"#F7C1C1"},
+      warning:{bg:"#FAEEDA",text:"#633806",border:"#FAC775"},
+    };
+
+    const Logo = ({ size=28, dark=false }) => (
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+          <rect width="64" height="64" rx="14" fill={dark?C.black:C.yellow}/>
+          <rect x="8" y="26" width="36" height="18" rx="4" fill={dark?C.yellow:C.black}/>
+          <rect x="9" y="27" width="13" height="10" rx="2" fill={dark?C.black:C.yellow} opacity="0.3"/>
+          <rect x="24" y="27" width="18" height="10" rx="2" fill={dark?C.black:C.yellow} opacity="0.3"/>
+          <rect x="8" y="32" width="36" height="5" fill={dark?C.black:C.yellow} opacity="0.15"/>
+          <circle cx="16" cy="47" r="5" fill={dark?C.yellow:C.black}/>
+          <circle cx="16" cy="47" r="2" fill={dark?C.black:C.yellow}/>
+          <circle cx="36" cy="47" r="5" fill={dark?C.yellow:C.black}/>
+          <circle cx="36" cy="47" r="2" fill={dark?C.black:C.yellow}/>
+          <circle cx="50" cy="20" r="10" fill={dark?C.yellow:C.black}/>
+          <path d="M44 20 L48 24 L56 16" stroke={dark?C.black:C.yellow} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        </svg>
+        <span style={{fontSize:size*0.75,fontWeight:800,letterSpacing:-0.5,lineHeight:1}}>
+          <span style={{color:dark?C.yellow:C.black}}>Van</span>
+          <span style={{color:dark?C.white:C.graphite,fontWeight:300}}>Pass</span>
+        </span>
+      </div>
+    );
+
+    const Badge = ({ children, type="default" }) => {
+      const map = {
+        default:{bg:C.black,text:C.yellow}, yellow:{bg:C.yellow,text:C.black},
+        success:C.success, danger:C.danger, warning:C.warning,
+        gray:{bg:"#F1EFE8",text:"#444441"},
+      };
+      const s = map[type]||map.default;
+      return <span style={{background:s.bg,color:s.text,fontSize:10,fontWeight:500,padding:"3px 8px",borderRadius:5,textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>{children}</span>;
+    };
+
+    const Btn = ({ children, onClick, variant="primary", full, small, disabled }) => {
+      const styles = {
+        primary:{bg:C.yellow,color:C.black,border:"none"},
+        dark:{bg:C.black,color:C.yellow,border:"none"},
+        outline:{bg:"transparent",color:C.black,border:`2px solid ${C.black}`},
+        ghost:{bg:"transparent",color:C.graphite,border:`1px solid ${C.border}`},
+      };
+      const s = styles[variant];
+      return <button onClick={onClick} disabled={disabled} style={{background:s.bg,color:s.color,border:s.border,borderRadius:10,padding:small?"7px 14px":"11px 20px",fontSize:small?12:14,fontWeight:700,cursor:disabled?"default":"pointer",width:full?"100%":"auto",opacity:disabled?0.5:1,fontFamily:"inherit",letterSpacing:-0.2}}>{children}</button>;
+    };
+
+    const Card = ({ children, style={}, accent }) => (
+      <div style={{background:C.white,border:`0.5px solid ${C.border}`,borderRadius:accent?"0 12px 12px 0":12,padding:"14px 16px",marginBottom:10,...(accent?{borderLeft:`3px solid ${C.yellow}`}:{}), ...style}}>{children}</div>
+    );
+
+    const Inp = ({ label, ...props }) => (
+      <div style={{marginBottom:12}}>
+        {label && <div style={{fontSize:12,color:C.textMuted,marginBottom:4,fontWeight:500}}>{label}</div>}
+        <input {...props} style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:"inherit",background:C.white,color:C.black}}/>
+      </div>
+    );
+
+    const Sel = ({ label, children, ...props }) => (
+      <div style={{marginBottom:12}}>
+        {label && <div style={{fontSize:12,color:C.textMuted,marginBottom:4,fontWeight:500}}>{label}</div>}
+        <select {...props} style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:"inherit",background:C.white,color:C.black}}>{children}</select>
+      </div>
+    );
+
+    const Sec = ({ title }) => (
+      <div style={{fontSize:10,fontWeight:500,letterSpacing:"0.08em",textTransform:"uppercase",color:C.textMuted,margin:"20px 0 10px",borderBottom:`1px solid ${C.border}`,paddingBottom:6}}>{title}</div>
+    );
+
+    const Flash = ({ text }) => text ? (
+      <div style={{background:C.success.bg,color:C.success.text,border:`1px solid ${C.success.border}`,padding:"10px 14px",borderRadius:8,marginBottom:12,fontSize:13}}>{text}</div>
+    ) : null;
+
+    const Stars = ({ value, onChange, size=16 }) => (
+      <span style={{display:"inline-flex",gap:2}}>
+        {[1,2,3,4,5].map(n=>(
+          <span key={n} onClick={()=>onChange&&onChange(n)} style={{fontSize:size,cursor:onChange?"pointer":"default",color:n<=Math.round(value)?C.yellow:C.border}}>★</span>
+        ))}
+      </span>
+    );
+
+    const MetricCard = ({ label, value, accent }) => (
+      <div style={{background:accent?C.black:"#F5F3EE",borderRadius:10,padding:"12px 14px",flex:1,textAlign:"center"}}>
+        <div style={{fontSize:11,color:accent?"#888":C.textMuted,marginBottom:4}}>{label}</div>
+        <div style={{fontSize:20,fontWeight:700,color:accent?C.yellow:C.black}}>{value}</div>
+      </div>
+    );
+
+    const NavTab = ({ items, active, onChange }) => (
+      <div style={{display:"flex",borderBottom:`2px solid ${C.border}`,overflowX:"auto",gap:0}}>
+        {items.map(n=>(
+          <button key={n.id} onClick={()=>onChange(n.id)} style={{background:"none",border:"none",borderBottom:active===n.id?`2px solid ${C.yellow}`:"2px solid transparent",marginBottom:-2,padding:"10px 14px",fontSize:13,fontWeight:active===n.id?700:400,color:active===n.id?C.black:C.textMuted,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}}>{n.label}</button>
+        ))}
+      </div>
+    );
+
+    function AppMotorista({ db, setDB }) {
+      const [tela,setTela] = useState("login");
+      const [mot,setMot] = useState(null);
+      const [form,setForm] = useState({cnpj:"",empresa:"",cidade:"",escola:"",vagasTotal:"",valor:""});
+      const [sub,setSub] = useState("dashboard");
+      const [msg,setMsg] = useState("");
+      const [nc,setNc] = useState({paiCpf:"",paiNome:"",aluno:"",valor:""});
+      const [ni,setNi] = useState({cpf:"",nome:"",valor:"",meses:"",obs:""});
+      const [busca,setBusca] = useState({cpf:"",nome:""});
+      const [pf,setPf] = useState({contratoId:"",mes:"",status:"pago"});
+
+      const flash = m => { setMsg(m); setTimeout(()=>setMsg(""),2800); };
+
+      const login = () => {
+        if (!form.cnpj||!form.empresa) return flash("Preencha CNPJ e nome da empresa.");
+        let m = db.motoristas.find(x=>x.cnpj===form.cnpj);
+        if (!m) {
+          if (!form.cidade||!form.escola||!form.vagasTotal||!form.valor) return flash("Primeiro acesso: preencha todos os campos.");
+          m = {id:"m"+Date.now(),cnpj:form.cnpj,empresa:form.empresa,cidade:form.cidade,escola:form.escola,vagas:parseInt(form.vagasTotal),vagasTotal:parseInt(form.vagasTotal),valor:parseFloat(form.valor)};
+          const nd={...db,motoristas:[...db.motoristas,m]};
+          setDB(nd); saveDB(nd);
+        }
+        setMot(m); setTela("app");
+      };
+
+      const meusCont = db.contratos.filter(c=>c.motoristaId===mot?.id);
+      const minhasInadim = db.inadimplentes.filter(i=>i.motoristaId===mot?.id);
+      const minhasAval = db.avaliacoes.filter(a=>a.motoristaId===mot?.id);
+      const mediaAval = minhasAval.length?(minhasAval.reduce((s,a)=>s+a.nota,0)/minhasAval.length).toFixed(1):"—";
+
+      const addContrato = () => {
+        const pai=db.pais.find(p=>p.cpf===nc.paiCpf);
+        if (!pai&&!nc.paiNome) return flash("CPF não encontrado. Informe o nome.");
+        if (!nc.aluno) return flash("Informe o nome do aluno.");
+        let nd={...db}; let paiId=pai?.id;
+        if (!pai){const np={id:"p"+Date.now(),cpf:nc.paiCpf,nome:nc.paiNome};nd.pais=[...nd.pais,np];paiId=np.id;}
+        nd.contratos=[...nd.contratos,{id:"c"+Date.now(),motoristaId:mot.id,paiId,aluno:nc.aluno,valor:parseFloat(nc.valor)||mot.valor,status:"ativo",pagamentos:[]}];
+        const mi=nd.motoristas.findIndex(x=>x.id===mot.id);
+        nd.motoristas[mi]={...nd.motoristas[mi],vagas:Math.max(0,nd.motoristas[mi].vagas-1)};
+        setMot(nd.motoristas[mi]);setDB(nd);saveDB(nd);
+        setNc({paiCpf:"",paiNome:"",aluno:"",valor:""});flash("Contrato adicionado!");
+      };
+
+      const addInadim = () => {
+        if (!ni.cpf||!ni.nome) return flash("CPF e nome são obrigatórios.");
+        const nd={...db,inadimplentes:[...db.inadimplentes,{...ni,motoristaId:mot.id,empresa:mot.empresa}]};
+        setDB(nd);saveDB(nd);setNi({cpf:"",nome:"",valor:"",meses:"",obs:""});flash("Inadimplência registrada!");
+      };
+
+      const addPag = () => {
+        if (!pf.contratoId||!pf.mes) return flash("Selecione o contrato e informe o mês.");
+        const nd={...db};
+        const ci=nd.contratos.findIndex(c=>c.id===pf.contratoId);
+        nd.contratos[ci].pagamentos=[...(nd.contratos[ci].pagamentos||[]),{mes:pf.mes,status:pf.status}];
+        setDB(nd);saveDB(nd);setPf({contratoId:"",mes:"",status:"pago"});flash("Pagamento registrado!");
+      };
+
+      const bRes=(busca.cpf||busca.nome)?db.inadimplentes.filter(i=>i.cpf.includes(busca.cpf)&&i.nome.toLowerCase().includes(busca.nome.toLowerCase())):[];
+
+      if (tela==="login") return (
+        <div style={{maxWidth:420,margin:"0 auto",padding:"32px 20px"}}>
+          <div style={{textAlign:"center",marginBottom:32}}><Logo size={48}/><p style={{color:C.textMuted,fontSize:14,marginTop:8}}>Área do motorista</p></div>
+          <Flash text={msg}/>
+          <Inp label="CNPJ" placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e=>setForm({...form,cnpj:e.target.value})}/>
+          <Inp label="Nome da empresa" value={form.empresa} onChange={e=>setForm({...form,empresa:e.target.value})}/>
+          <details style={{marginBottom:16}}>
+            <summary style={{fontSize:13,color:C.textMuted,cursor:"pointer",marginBottom:10,userSelect:"none"}}>Primeiro acesso? Clique aqui para preencher os dados da van</summary>
+            <div style={{marginTop:10}}>
+              <Inp label="Cidade" value={form.cidade} onChange={e=>setForm({...form,cidade:e.target.value})}/>
+              <Inp label="Escola atendida" value={form.escola} onChange={e=>setForm({...form,escola:e.target.value})}/>
+              <Inp label="Total de vagas" type="number" value={form.vagasTotal} onChange={e=>setForm({...form,vagasTotal:e.target.value})}/>
+              <Inp label="Valor mensal (R$)" type="number" value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})}/>
+            </div>
+          </details>
+          <Btn full onClick={login}>Entrar</Btn>
+        </div>
+      );
+
+      const navItems=[{id:"dashboard",label:"Início"},{id:"contratos",label:"Contratos"},{id:"pagamentos",label:"Pagamentos"},{id:"inadimplencia",label:"Inadimplência"},{id:"comunidade",label:"Comunidade"},{id:"avaliacoes",label:"Avaliações"}];
+
+      return (
+        <div>
+          <div style={{background:C.black,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <Logo size={26} dark/>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <span style={{fontSize:13,color:"#aaa"}}>{mot.empresa}</span>
+              <Btn variant="ghost" small onClick={()=>{setTela("login");setMot(null);}}>Sair</Btn>
+            </div>
+          </div>
+          <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:"0 20px"}}>
+            <NavTab items={navItems} active={sub} onChange={setSub}/>
+          </div>
+          <div style={{padding:20,background:C.bg,minHeight:400}}>
+            <Flash text={msg}/>
+
+            {sub==="dashboard" && (
+              <div>
+                <div style={{display:"flex",gap:10,marginBottom:20}}>
+                  <MetricCard label="Vagas" value={`${mot.vagas}/${mot.vagasTotal}`}/>
+                  <MetricCard label="Contratos" value={meusCont.length} accent/>
+                  <MetricCard label="Avaliação" value={minhasAval.length?`${mediaAval} ★`:"—"}/>
+                </div>
+                <Sec title="Dados da van"/>
+                <Card>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,fontSize:14}}>
+                    {[["Escola",mot.escola],["Cidade",mot.cidade],["CNPJ",mot.cnpj],["Valor",`R$ ${mot.valor}/mês`]].map(([l,v])=>(
+                      <div key={l}><span style={{color:C.textMuted}}>{l}: </span><span style={{fontWeight:500}}>{v}</span></div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {sub==="contratos" && (
+              <div>
+                <Sec title="Novo contrato"/>
+                <Card>
+                  <Inp label="CPF do responsável" placeholder="000.000.000-00" value={nc.paiCpf} onChange={e=>setNc({...nc,paiCpf:e.target.value})}/>
+                  <Inp label="Nome (se não cadastrado)" value={nc.paiNome} onChange={e=>setNc({...nc,paiNome:e.target.value})}/>
+                  <Inp label="Nome do aluno" value={nc.aluno} onChange={e=>setNc({...nc,aluno:e.target.value})}/>
+                  <Inp label={`Valor mensal (R$) — padrão: R$ ${mot.valor}`} type="number" value={nc.valor} onChange={e=>setNc({...nc,valor:e.target.value})}/>
+                  <Btn full onClick={addContrato}>Adicionar contrato</Btn>
+                </Card>
+                <Sec title="Contratos ativos"/>
+                {meusCont.length===0&&<p style={{color:C.textMuted,fontSize:14}}>Nenhum contrato cadastrado.</p>}
+                {meusCont.map(c=>{
+                  const pai=db.pais.find(p=>p.id===c.paiId);
+                  const inadim=db.inadimplentes.find(i=>i.cpf===pai?.cpf);
+                  return <Card key={c.id}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:15}}>{c.aluno}</div>
+                        <div style={{fontSize:13,color:C.textMuted}}>{pai?.nome} · {pai?.cpf}</div>
+                        <div style={{fontSize:13,marginTop:2}}>R$ {c.valor}/mês</div>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+                        <Badge type={c.status==="ativo"?"success":"gray"}>{c.status}</Badge>
+                        {inadim&&<Badge type="danger">inadimplente</Badge>}
+                      </div>
+                    </div>
+                  </Card>;
+                })}
+              </div>
+            )}
+
+            {sub==="pagamentos" && (
+              <div>
+                <Sec title="Registrar pagamento"/>
+                <Card>
+                  <Sel label="Contrato" value={pf.contratoId} onChange={e=>setPf({...pf,contratoId:e.target.value})}>
+                    <option value="">Selecione...</option>
+                    {meusCont.map(c=>{const p=db.pais.find(x=>x.id===c.paiId);return <option key={c.id} value={c.id}>{c.aluno} — {p?.nome}</option>;})}
+                  </Sel>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <Inp label="Mês (ex: Abr/2025)" value={pf.mes} onChange={e=>setPf({...pf,mes:e.target.value})}/>
+                    <Sel label="Status" value={pf.status} onChange={e=>setPf({...pf,status:e.target.value})}>
+                      <option value="pago">Pago</option>
+                      <option value="atrasado">Atrasado</option>
+                      <option value="pendente">Pendente</option>
+                    </Sel>
+                  </div>
+                  <Btn full onClick={addPag}>Registrar pagamento</Btn>
+                </Card>
+                <Sec title="Histórico"/>
+                {meusCont.map(c=>{
+                  const pai=db.pais.find(p=>p.id===c.paiId);
+                  return <Card key={c.id}>
+                    <div style={{fontWeight:700,marginBottom:8}}>{c.aluno} <span style={{fontWeight:400,color:C.textMuted,fontSize:13}}>— {pai?.nome}</span></div>
+                    {(!c.pagamentos||c.pagamentos.length===0)&&<p style={{color:C.textMuted,fontSize:13,margin:0}}>Sem pagamentos.</p>}
+                    {c.pagamentos?.map((p,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`0.5px solid ${C.border}`,fontSize:14}}>
+                        <span>{p.mes}</span>
+                        <Badge type={p.status==="pago"?"success":p.status==="atrasado"?"danger":"warning"}>{p.status}</Badge>
+                      </div>
+                    ))}
+                  </Card>;
+                })}
+              </div>
+            )}
+
+            {sub==="inadimplencia" && (
+              <div>
+                <Sec title="Registrar inadimplência"/>
+                <Card>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <Inp label="CPF" value={ni.cpf} onChange={e=>setNi({...ni,cpf:e.target.value})}/>
+                    <Inp label="Nome completo" value={ni.nome} onChange={e=>setNi({...ni,nome:e.target.value})}/>
+                    <Inp label="Valor em aberto (R$)" type="number" value={ni.valor} onChange={e=>setNi({...ni,valor:e.target.value})}/>
+                    <Inp label="Meses em atraso" type="number" value={ni.meses} onChange={e=>setNi({...ni,meses:e.target.value})}/>
+                  </div>
+                  <Inp label="Observação" value={ni.obs} onChange={e=>setNi({...ni,obs:e.target.value})}/>
+                  <Btn full variant="dark" onClick={addInadim}>Registrar inadimplência</Btn>
+                </Card>
+                <Sec title="Meus registros"/>
+                {minhasInadim.length===0&&<p style={{color:C.textMuted,fontSize:14}}>Nenhum registro.</p>}
+                {minhasInadim.map((i,idx)=>(
+                  <Card key={idx} accent>
+                    <div style={{display:"flex",justifyContent:"space-between"}}>
+                      <div>
+                        <div style={{fontWeight:700}}>{i.nome}</div>
+                        <div style={{fontSize:13,color:C.textMuted}}>{i.cpf}</div>
+                        {i.obs&&<div style={{fontSize:13,color:C.textMuted,marginTop:2}}>{i.obs}</div>}
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontWeight:700,color:"#A32D2D"}}>R$ {i.valor}</div>
+                        <div style={{fontSize:12,color:C.textMuted}}>{i.meses} meses</div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {sub==="comunidade" && (
+              <div>
+                <div style={{background:C.yellow,borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"flex-start"}}>
+                  <span style={{fontSize:16}}>⚠</span>
+                  <span style={{fontSize:13,color:C.black,fontWeight:500}}>Consulte o histórico de inadimplência registrado por outros motoristas da rede VanPass.</span>
+                </div>
+                <Card>
+                  <Inp label="Buscar por CPF" placeholder="000.000.000-00" value={busca.cpf} onChange={e=>setBusca({...busca,cpf:e.target.value})}/>
+                  <Inp label="Ou buscar por nome" value={busca.nome} onChange={e=>setBusca({...busca,nome:e.target.value})}/>
+                </Card>
+                {(busca.cpf||busca.nome)&&bRes.length===0&&(
+                  <div style={{background:C.success.bg,border:`1px solid ${C.success.border}`,color:C.success.text,padding:"12px 16px",borderRadius:10,fontSize:14}}>
+                    Nenhuma inadimplência encontrada para este responsável.
+                  </div>
+                )}
+                {bRes.map((i,idx)=>(
+                  <Card key={idx} accent>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontWeight:700,fontSize:15}}>{i.nome}</span>
+                          <Badge type="danger">inadimplente</Badge>
+                        </div>
+                        <div style={{fontSize:13,color:C.textMuted}}>CPF: {i.cpf}</div>
+                        <div style={{fontSize:13,marginTop:4}}>Reportado por: <strong>{i.empresa}</strong></div>
+                        {i.obs&&<div style={{fontSize:13,color:C.textMuted}}>{i.obs}</div>}
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontWeight:700,color:"#A32D2D",fontSize:16}}>R$ {i.valor}</div>
+                        <div style={{fontSize:12,color:C.textMuted}}>{i.meses} meses em atraso</div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {sub==="avaliacoes" && (
+              <div>
+                {minhasAval.length>0&&(
+                  <div style={{background:C.black,borderRadius:12,padding:"16px 20px",marginBottom:16,display:"flex",alignItems:"center",gap:16}}>
+                    <div style={{fontSize:40,fontWeight:800,color:C.yellow}}>{mediaAval}</div>
+                    <div>
+                      <Stars value={parseFloat(mediaAval)||0} size={20}/>
+                      <div style={{fontSize:13,color:"#888",marginTop:2}}>{minhasAval.length} avaliações recebidas</div>
+                    </div>
+                  </div>
+                )}
+                {minhasAval.length===0&&<p style={{color:C.textMuted,fontSize:14}}>Nenhuma avaliação recebida ainda.</p>}
+                {minhasAval.map((a,idx)=>{
+                  const pai=db.pais.find(p=>p.id===a.paiId);
+                  return <Card key={idx}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                      <span style={{fontWeight:700}}>{pai?.nome||"Pai/Mãe"}</span>
+                      <Stars value={a.nota} size={15}/>
+                    </div>
+                    <p style={{margin:0,fontSize:14,color:C.graphite}}>{a.comentario}</p>
+                    <div style={{fontSize:12,color:C.textMuted,marginTop:6}}>{a.data}</div>
+                  </Card>;
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function AppPais({ db, setDB }) {
+      const [tela,setTela] = useState("login");
+      const [pai,setPai] = useState(null);
+      const [form,setForm] = useState({cpf:"",nome:"",email:""});
+      const [sub,setSub] = useState("buscar");
+      const [msg,setMsg] = useState("");
+      const [busca,setBusca] = useState({escola:"",cidade:""});
+      const [af,setAf] = useState({motoristaId:"",nota:5,comentario:""});
+      const [sf,setSf] = useState({motoristaId:""});
+
+      const flash = m => { setMsg(m); setTimeout(()=>setMsg(""),2800); };
+
+      const login = () => {
+        if (!form.cpf||!form.nome) return flash("Preencha CPF e nome.");
+        let p=db.pais.find(x=>x.cpf===form.cpf);
+        if (!p){p={id:"p"+Date.now(),cpf:form.cpf,nome:form.nome,email:form.email};const nd={...db,pais:[...db.pais,p]};setDB(nd);saveDB(nd);}
+        setPai(p);setTela("app");
+      };
+
+      const resultados=db.motoristas.filter(m=>(!busca.escola||m.escola.toLowerCase().includes(busca.escola.toLowerCase()))&&(!busca.cidade||m.cidade.toLowerCase().includes(busca.cidade.toLowerCase())));
+
+      const enviarAval = () => {
+        if (!af.motoristaId) return flash("Selecione um motorista.");
+        if (db.avaliacoes.find(a=>a.motoristaId===af.motoristaId&&a.paiId===pai.id)) return flash("Você já avaliou este motorista.");
+        const nd={...db,avaliacoes:[...db.avaliacoes,{motoristaId:af.motoristaId,paiId:pai.id,nota:af.nota,comentario:af.comentario,data:new Date().toISOString().slice(0,10)}]};
+        setDB(nd);saveDB(nd);setAf({motoristaId:"",nota:5,comentario:""});flash("Avaliação enviada!");
+      };
+
+      const enviarSol = () => {
+        if (!sf.motoristaId) return flash("Selecione um motorista.");
+        const nd={...db,solicitacoes:[...(db.solicitacoes||[]),{id:"s"+Date.now(),paiId:pai.id,motoristaId:sf.motoristaId,data:new Date().toISOString().slice(0,10),status:"pendente"}]};
+        setDB(nd);saveDB(nd);setSf({motoristaId:""});flash("Solicitação enviada!");
+      };
+
+      const minhasSol=(db.solicitacoes||[]).filter(s=>s.paiId===pai?.id);
+
+      if (tela==="login") return (
+        <div style={{maxWidth:420,margin:"0 auto",padding:"32px 20px"}}>
+          <div style={{textAlign:"center",marginBottom:32}}><Logo size={48}/><p style={{color:C.textMuted,fontSize:14,marginTop:8}}>Encontre a van ideal para seu filho</p></div>
+          <Flash text={msg}/>
+          <Inp label="CPF" placeholder="000.000.000-00" value={form.cpf} onChange={e=>setForm({...form,cpf:e.target.value})}/>
+          <Inp label="Nome completo" value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})}/>
+          <Inp label="E-mail (opcional)" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+          <Btn full onClick={login}>Entrar</Btn>
+        </div>
+      );
+
+      const navItems=[{id:"buscar",label:"Buscar vans"},{id:"avaliar",label:"Avaliar motorista"},{id:"solicitar",label:"Solicitar vaga"},{id:"minhas",label:"Minhas solicitações"}];
+
+      return (
+        <div>
+          <div style={{background:C.black,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <Logo size={26} dark/>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <span style={{fontSize:13,color:"#aaa"}}>{pai.nome}</span>
+              <Btn variant="ghost" small onClick={()=>{setTela("login");setPai(null);}}>Sair</Btn>
+            </div>
+          </div>
+          <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:"0 20px"}}>
+            <NavTab items={navItems} active={sub} onChange={setSub}/>
+          </div>
+          <div style={{padding:20,background:C.bg,minHeight:400}}>
+            <Flash text={msg}/>
+
+            {sub==="buscar"&&(
+              <div>
+                <Card>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <Inp label="Escola" placeholder="Nome da escola" value={busca.escola} onChange={e=>setBusca({...busca,escola:e.target.value})}/>
+                    <Inp label="Cidade" value={busca.cidade} onChange={e=>setBusca({...busca,cidade:e.target.value})}/>
+                  </div>
+                </Card>
+                <Sec title={`${resultados.length} van(s) encontrada(s)`}/>
+                {resultados.map(m=>{
+                  const avals=db.avaliacoes.filter(a=>a.motoristaId===m.id);
+                  const media=avals.length?avals.reduce((s,a)=>s+a.nota,0)/avals.length:0;
+                  return <Card key={m.id}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:15}}>{m.empresa}</div>
+                        <div style={{fontSize:13,color:C.textMuted}}>{m.escola}</div>
+                        <div style={{fontSize:13,color:C.textMuted}}>{m.cidade}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontWeight:700,fontSize:16}}>R$ {m.valor}<span style={{fontSize:12,fontWeight:400,color:C.textMuted}}>/mês</span></div>
+                        {avals.length>0?<Stars value={media} size={14}/>:<span style={{fontSize:11,color:C.textMuted}}>sem avaliações</span>}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:avals.length?10:0}}>
+                      <Badge type={m.vagas>0?"yellow":"danger"}>{m.vagas>0?`${m.vagas} vagas`:"sem vagas"}</Badge>
+                      {avals.length>0&&<Badge type="gray">{media.toFixed(1)} ★ · {avals.length} aval.</Badge>}
+                    </div>
+                    {avals.length>0&&(
+                      <div style={{borderTop:`0.5px solid ${C.border}`,paddingTop:8}}>
+                        {avals.slice(-2).map((a,i)=>{
+                          const p=db.pais.find(x=>x.id===a.paiId);
+                          return <div key={i} style={{fontSize:13,marginBottom:4,color:C.textMuted}}><strong style={{color:C.black}}>{p?.nome||"Pai/Mãe"}:</strong> {a.comentario}</div>;
+                        })}
+                      </div>
+                    )}
+                  </Card>;
+                })}
+              </div>
+            )}
+
+            {sub==="avaliar"&&(
+              <Card>
+                <Sec title="Avaliar motorista"/>
+                <Sel label="Motorista" value={af.motoristaId} onChange={e=>setAf({...af,motoristaId:e.target.value})}>
+                  <option value="">Selecione...</option>
+                  {db.motoristas.map(m=><option key={m.id} value={m.id}>{m.empresa} — {m.escola}</option>)}
+                </Sel>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:12,color:C.textMuted,marginBottom:8,fontWeight:500}}>Nota</div>
+                  <Stars value={af.nota} onChange={n=>setAf({...af,nota:n})} size={32}/>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:12,color:C.textMuted,marginBottom:6,fontWeight:500}}>Comentário</div>
+                  <textarea value={af.comentario} onChange={e=>setAf({...af,comentario:e.target.value})} rows={3}
+                    style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:"inherit",resize:"vertical",background:C.white,color:C.black}}/>
+                </div>
+                <Btn full onClick={enviarAval}>Enviar avaliação</Btn>
+              </Card>
+            )}
+
+            {sub==="solicitar"&&(
+              <Card>
+                <Sec title="Solicitar vaga"/>
+                <Sel label="Motoristas com vagas disponíveis" value={sf.motoristaId} onChange={e=>setSf({...sf,motoristaId:e.target.value})}>
+                  <option value="">Selecione...</option>
+                  {db.motoristas.filter(m=>m.vagas>0).map(m=><option key={m.id} value={m.id}>{m.empresa} — {m.escola} ({m.vagas} vagas)</option>)}
+                </Sel>
+                {sf.motoristaId&&(()=>{const m=db.motoristas.find(x=>x.id===sf.motoristaId);return m?(
+                  <div style={{background:"#F5F3EE",borderRadius:8,padding:"12px 14px",marginBottom:14}}>
+                    <div style={{fontWeight:700}}>{m.empresa}</div>
+                    <div style={{fontSize:13,color:C.textMuted}}>{m.escola} · {m.cidade}</div>
+                    <div style={{fontSize:13,marginTop:4}}>R$ {m.valor}/mês · <span style={{color:"#27500A",fontWeight:500}}>{m.vagas} vagas disponíveis</span></div>
+                  </div>
+                ):null;})()}
+                <Btn full onClick={enviarSol}>Enviar solicitação</Btn>
+              </Card>
+            )}
+
+            {sub==="minhas"&&(
+              <div>
+                <Sec title="Minhas solicitações"/>
+                {minhasSol.length===0&&<p style={{color:C.textMuted,fontSize:14}}>Nenhuma solicitação enviada.</p>}
+                {minhasSol.map((s,i)=>{
+                  const m=db.motoristas.find(x=>x.id===s.motoristaId);
+                  return <Card key={i}>
+                    <div style={{display:"flex",justifyContent:"space-between"}}>
+                      <div>
+                        <div style={{fontWeight:700}}>{m?.empresa}</div>
+                        <div style={{fontSize:13,color:C.textMuted}}>{m?.escola}</div>
+                        <div style={{fontSize:12,color:C.textMuted,marginTop:2}}>{s.data}</div>
+                      </div>
+                      <Badge type={s.status==="pendente"?"warning":s.status==="aceito"?"success":"danger"}>{s.status}</Badge>
+                    </div>
+                  </Card>;
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [modo,setModo] = useState(null);
+      const [db,setDB] = useState(loadDB);
+
+      if (!modo) return (
+        <div style={{minHeight:"100vh",background:C.black,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,gap:32}}>
+          <Logo size={56} dark/>
+          <p style={{color:"#666",fontSize:14,margin:0,textAlign:"center"}}>Selecione o seu perfil para continuar</p>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center"}}>
+            <div onClick={()=>setModo("motorista")} style={{background:"#111",border:`2px solid ${C.yellow}`,borderRadius:16,padding:"28px 32px",cursor:"pointer",textAlign:"center",minWidth:160}}>
+              <div style={{fontSize:36,marginBottom:10}}>🚐</div>
+              <div style={{color:C.yellow,fontWeight:800,fontSize:16,letterSpacing:-0.5}}>Sou motorista</div>
+              <div style={{color:"#666",fontSize:12,marginTop:4}}>Gerenciar contratos e comunidade</div>
+            </div>
+            <div onClick={()=>setModo("pais")} style={{background:"#111",border:`1px solid #333`,borderRadius:16,padding:"28px 32px",cursor:"pointer",textAlign:"center",minWidth:160}}>
+              <div style={{fontSize:36,marginBottom:10}}>👨‍👩‍👧</div>
+              <div style={{color:C.white,fontWeight:800,fontSize:16,letterSpacing:-0.5}}>Sou pai/mãe</div>
+              <div style={{color:"#666",fontSize:12,marginTop:4}}>Buscar vans e solicitar vagas</div>
+            </div>
+          </div>
+        </div>
+      );
+
+      return (
+        <div style={{fontFamily:"system-ui,sans-serif",maxWidth:680,margin:"0 auto",background:C.white,minHeight:"100vh"}}>
+          {modo==="motorista"?<AppMotorista db={db} setDB={setDB}/>:<AppPais db={db} setDB={setDB}/>}
+          <div style={{background:C.black,padding:"10px 20px",display:"flex",justifyContent:"center"}}>
+            <button onClick={()=>setModo(null)} style={{background:"none",border:"none",color:"#555",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>← Trocar perfil</button>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>

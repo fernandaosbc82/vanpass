@@ -18,11 +18,49 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
   </style>
-</head>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0"></script>
+  </head>
 <body>
   <div id="root"></div>
 
   <script type="text/babel">
+  // ===== SUPABASE AUTH INITIALIZATION =====
+  const SUPABASE_URL = 'https://wxhkdijowwbypctcrthx.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4aGtkaWpvd3dieXBjdGNydGh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMzA2MjAsImV4cCI6MjA5MjcwNjYyMH0.9-WmWDklm15xgPShyXqxU8RQW1nBFl7-k7A-I22gC94';
+  const { createClient } = window.supabase;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  let currentUser = null;
+  let currentUserType = null; // 'motorista' ou 'pai'
+  let motoristaPerfil = null;
+  let paiPerfil = null;
+  
+  // Recuperar sessão ao carregar
+  (async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        // TODO: buscar dados do perfil da tabela motoristas/pais
+      }
+    } catch (e) {
+      console.error('Erro ao recuperar sessão:', e);
+    }
+  })();
+  
+  // Monitorar mudanças de autenticação
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN') {
+      currentUser = session.user;
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      currentUserType = null;
+      motoristaPerfil = null;
+      paiPerfil = null;
+    }
+  });
+  // ===== END SUPABASE =====
+
+  
     const { useState } = React;
 
     const initialDB = {
@@ -253,6 +291,8 @@
           <Flash text={msg}/>
           <Inp label="CNPJ" placeholder="00.000.000/0001-00" mask="cnpj" validate="cnpj" required errorMsg="Informe o CNPJ da empresa." value={form.cnpj} onChange={e=>setForm({...form,cnpj:e.target.value})}/>
           <Inp label="Nome da empresa" required minLength={2} maxLength={80} errorMsg="Informe o nome da empresa." value={form.empresa} onChange={e=>setForm({...form,empresa:e.target.value})}/>
+          <Inp label="E-mail" type="email" required maxLength={120} placeholder="seunome@exemplo.com" errorMsg="Informe um e-mail válido (ex: nome@dominio.com)." value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+          <Inp label="Senha" type="password" required minLength={8} maxLength={60} errorMsg="A senha deve ter no mínimo 8 caracteres." value={form.senha} onChange={e=>setForm({...form,senha:e.target.value})}/>
           <details style={{marginBottom:16}}>
             <summary style={{fontSize:13,color:C.textMuted,cursor:"pointer",marginBottom:10,userSelect:"none"}}>Primeiro acesso? Clique aqui para preencher os dados da van</summary>
             <div style={{marginTop:10}}>
@@ -510,6 +550,8 @@
           <Flash text={msg}/>
           <Inp label="CPF" placeholder="000.000.000-00" mask="cpf" validate="cpf" required errorMsg="Informe o seu CPF." value={form.cpf} onChange={e=>setForm({...form,cpf:e.target.value})}/>
           <Inp label="Nome completo" required minLength={2} maxLength={80} errorMsg="Informe o nome completo." value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})}/>
+          <Inp label="E-mail" type="email" required maxLength={120} placeholder="seunome@exemplo.com" errorMsg="Informe um e-mail válido (ex: nome@dominio.com)." value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+          <Inp label="Senha" type="password" required minLength={8} maxLength={60} errorMsg="A senha deve ter no mínimo 8 caracteres." value={form.senha} onChange={e=>setForm({...form,senha:e.target.value})}/>
           <Inp label="E-mail (opcional)" type="email" validate="email" maxLength={120} placeholder="seunome@exemplo.com" errorMsg="Informe um e-mail válido (ex: nome@dominio.com)." value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
           <Btn full onClick={login}>Entrar</Btn>
         </div>

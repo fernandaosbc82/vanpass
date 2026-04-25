@@ -111,12 +111,44 @@
       <div style={{background:C.white,border:`0.5px solid ${C.border}`,borderRadius:accent?"0 12px 12px 0":12,padding:"14px 16px",marginBottom:10,...(accent?{borderLeft:`3px solid ${C.yellow}`}:{}), ...style}}>{children}</div>
     );
 
-    const Inp = ({ label, ...props }) => (
-      <div style={{marginBottom:12}}>
-        {label && <div style={{fontSize:12,color:C.textMuted,marginBottom:4,fontWeight:500}}>{label}</div>}
-        <input {...props} style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:"inherit",background:C.white,color:C.black}}/>
-      </div>
-    );
+    const masks = {
+      cnpj: v => v.replace(/\D/g,"").slice(0,14).replace(/^(\d{2})(\d)/,"$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/,"$1.$2.$3").replace(/\.(\d{3})(\d)/,".$1/$2").replace(/(\d{4})(\d)/,"$1-$2"),
+      cpf: v => v.replace(/\D/g,"").slice(0,11).replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d{1,2})$/,"$1-$2"),
+      money: v => { const n=v.replace(/\D/g,""); if(!n) return ""; return (parseInt(n,10)/100).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,"."); },
+      int: v => v.replace(/\D/g,""),
+      mes: v => { let s=v.replace(/[^A-Za-z0-9\/]/g,"").slice(0,8); if(s.length>3 && s[3]!=="/") s=s.slice(0,3)+"/"+s.slice(3); return s; }
+    };
+    const validators = {
+      cnpj: { pattern: "\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}", title: "Digite um CNPJ válido no formato 00.000.000/0001-00", invalid: "Informe um CNPJ válido (ex: 12.345.678/0001-90)." },
+      cpf: { pattern: "\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}", title: "Digite um CPF válido no formato 000.000.000-00", invalid: "Informe um CPF válido (ex: 123.456.789-00)." },
+      mes: { pattern: "[A-Za-zÀ-ÿ]{3}/\\d{4}", title: "Use o formato Mês/Ano (ex: Abr/2025)", invalid: "Informe o mês no formato Mês/Ano (ex: Abr/2025)." },
+      email: { title: "Digite um e-mail válido (ex: nome@dominio.com)", invalid: "Informe um e-mail válido (ex: nome@dominio.com)." }
+    };
+    const Inp = ({ label, mask, validate, errorMsg, onChange, ...props }) => {
+      const v = validate && validators[validate] ? validators[validate] : {};
+      const handleChange = e => {
+        if (mask && masks[mask]) e.target.value = masks[mask](e.target.value);
+        e.target.setCustomValidity("");
+        if (onChange) onChange(e);
+      };
+      const handleInvalid = e => {
+        const t = e.target;
+        if (t.validity.valueMissing) t.setCustomValidity(errorMsg || "Este campo é obrigatório.");
+        else if (t.validity.typeMismatch && props.type==="email") t.setCustomValidity(v.invalid || "Informe um e-mail válido.");
+        else if (t.validity.patternMismatch) t.setCustomValidity(v.invalid || errorMsg || "Formato inválido.");
+        else if (t.validity.rangeUnderflow) t.setCustomValidity(`O valor mínimo é ${props.min}.`);
+        else if (t.validity.rangeOverflow) t.setCustomValidity(`O valor máximo é ${props.max}.`);
+        else if (t.validity.tooShort) t.setCustomValidity(`Preencha com pelo menos ${props.minLength} caracteres.`);
+        else if (t.validity.stepMismatch) t.setCustomValidity("Informe um valor numérico válido.");
+        else t.setCustomValidity(errorMsg || "Valor inválido.");
+      };
+      return (
+        <div style={{marginBottom:12}}>
+          {label && <div style={{fontSize:12,color:C.textMuted,marginBottom:4,fontWeight:500}}>{label}</div>}
+          <input {...props} {...(v.pattern?{pattern:v.pattern}:{})} {...(v.title?{title:v.title}:(props.title?{}:{}))} onChange={handleChange} onInvalid={handleInvalid} style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:"inherit",background:C.white,color:C.black}}/>
+        </div>
+      );
+    };
 
     const Sel = ({ label, children, ...props }) => (
       <div style={{marginBottom:12}}>
@@ -219,15 +251,15 @@
         <div style={{maxWidth:420,margin:"0 auto",padding:"32px 20px"}}>
           <div style={{textAlign:"center",marginBottom:32}}><Logo size={48}/><p style={{color:C.textMuted,fontSize:14,marginTop:8}}>Área do motorista</p></div>
           <Flash text={msg}/>
-          <Inp label="CNPJ" placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e=>setForm({...form,cnpj:e.target.value})}/>
-          <Inp label="Nome da empresa" value={form.empresa} onChange={e=>setForm({...form,empresa:e.target.value})}/>
+          <Inp label="CNPJ" placeholder="00.000.000/0001-00" mask="cnpj" validate="cnpj" required errorMsg="Informe o CNPJ da empresa." value={form.cnpj} onChange={e=>setForm({...form,cnpj:e.target.value})}/>
+          <Inp label="Nome da empresa" required minLength={2} maxLength={80} errorMsg="Informe o nome da empresa." value={form.empresa} onChange={e=>setForm({...form,empresa:e.target.value})}/>
           <details style={{marginBottom:16}}>
             <summary style={{fontSize:13,color:C.textMuted,cursor:"pointer",marginBottom:10,userSelect:"none"}}>Primeiro acesso? Clique aqui para preencher os dados da van</summary>
             <div style={{marginTop:10}}>
-              <Inp label="Cidade" value={form.cidade} onChange={e=>setForm({...form,cidade:e.target.value})}/>
-              <Inp label="Escola atendida" value={form.escola} onChange={e=>setForm({...form,escola:e.target.value})}/>
-              <Inp label="Total de vagas" type="number" value={form.vagasTotal} onChange={e=>setForm({...form,vagasTotal:e.target.value})}/>
-              <Inp label="Valor mensal (R$)" type="number" value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})}/>
+              <Inp label="Cidade" required minLength={2} maxLength={60} errorMsg="Informe a cidade de atendimento." value={form.cidade} onChange={e=>setForm({...form,cidade:e.target.value})}/>
+              <Inp label="Escola atendida" required minLength={2} maxLength={80} errorMsg="Informe a escola atendida." value={form.escola} onChange={e=>setForm({...form,escola:e.target.value})}/>
+              <Inp label="Total de vagas" type="number" min={1} max={50} step={1} required errorMsg="Informe o total de vagas (1 a 50)." value={form.vagasTotal} onChange={e=>setForm({...form,vagasTotal:e.target.value})}/>
+              <Inp label="Valor mensal (R$)" type="number" min={0} step="0.01" required errorMsg="Informe o valor mensal cobrado." value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})}/>
             </div>
           </details>
           <Btn full onClick={login}>Entrar</Btn>
@@ -273,10 +305,10 @@
               <div>
                 <Sec title="Novo contrato"/>
                 <Card>
-                  <Inp label="CPF do responsável" placeholder="000.000.000-00" value={nc.paiCpf} onChange={e=>setNc({...nc,paiCpf:e.target.value})}/>
-                  <Inp label="Nome (se não cadastrado)" value={nc.paiNome} onChange={e=>setNc({...nc,paiNome:e.target.value})}/>
-                  <Inp label="Nome do aluno" value={nc.aluno} onChange={e=>setNc({...nc,aluno:e.target.value})}/>
-                  <Inp label={`Valor mensal (R$) — padrão: R$ ${mot.valor}`} type="number" value={nc.valor} onChange={e=>setNc({...nc,valor:e.target.value})}/>
+                  <Inp label="CPF do responsável" placeholder="000.000.000-00" mask="cpf" validate="cpf" required errorMsg="Informe o CPF do responsável." value={nc.paiCpf} onChange={e=>setNc({...nc,paiCpf:e.target.value})}/>
+                  <Inp label="Nome (se não cadastrado)" minLength={2} maxLength={80} errorMsg="Informe o nome do responsável." value={nc.paiNome} onChange={e=>setNc({...nc,paiNome:e.target.value})}/>
+                  <Inp label="Nome do aluno" required minLength={2} maxLength={80} errorMsg="Informe o nome do aluno." value={nc.aluno} onChange={e=>setNc({...nc,aluno:e.target.value})}/>
+                  <Inp label={`Valor mensal (R$) — padrão: R$ ${mot.valor}`} type="number" min={0} step="0.01" errorMsg="Informe um valor numérico válido." value={nc.valor} onChange={e=>setNc({...nc,valor:e.target.value})}/>
                   <Btn full onClick={addContrato}>Adicionar contrato</Btn>
                 </Card>
                 <Sec title="Contratos ativos"/>
@@ -310,7 +342,7 @@
                     {meusCont.map(c=>{const p=db.pais.find(x=>x.id===c.paiId);return <option key={c.id} value={c.id}>{c.aluno} — {p?.nome}</option>;})}
                   </Sel>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                    <Inp label="Mês (ex: Abr/2025)" value={pf.mes} onChange={e=>setPf({...pf,mes:e.target.value})}/>
+                    <Inp label="Mês (ex: Abr/2025)" placeholder="Abr/2025" mask="mes" validate="mes" required errorMsg="Informe o mês no formato Abr/2025." value={pf.mes} onChange={e=>setPf({...pf,mes:e.target.value})}/>
                     <Sel label="Status" value={pf.status} onChange={e=>setPf({...pf,status:e.target.value})}>
                       <option value="pago">Pago</option>
                       <option value="atrasado">Atrasado</option>
@@ -341,12 +373,12 @@
                 <Sec title="Registrar inadimplência"/>
                 <Card>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                    <Inp label="CPF" value={ni.cpf} onChange={e=>setNi({...ni,cpf:e.target.value})}/>
-                    <Inp label="Nome completo" value={ni.nome} onChange={e=>setNi({...ni,nome:e.target.value})}/>
-                    <Inp label="Valor em aberto (R$)" type="number" value={ni.valor} onChange={e=>setNi({...ni,valor:e.target.value})}/>
-                    <Inp label="Meses em atraso" type="number" value={ni.meses} onChange={e=>setNi({...ni,meses:e.target.value})}/>
+                    <Inp label="CPF" placeholder="000.000.000-00" mask="cpf" validate="cpf" required errorMsg="Informe o CPF do inadimplente." value={ni.cpf} onChange={e=>setNi({...ni,cpf:e.target.value})}/>
+                    <Inp label="Nome completo" required minLength={2} maxLength={80} errorMsg="Informe o nome completo." value={ni.nome} onChange={e=>setNi({...ni,nome:e.target.value})}/>
+                    <Inp label="Valor em aberto (R$)" type="number" min={0} step="0.01" required errorMsg="Informe o valor em aberto." value={ni.valor} onChange={e=>setNi({...ni,valor:e.target.value})}/>
+                    <Inp label="Meses em atraso" type="number" min={1} max={120} step={1} required errorMsg="Informe a quantidade de meses em atraso." value={ni.meses} onChange={e=>setNi({...ni,meses:e.target.value})}/>
                   </div>
-                  <Inp label="Observação" value={ni.obs} onChange={e=>setNi({...ni,obs:e.target.value})}/>
+                  <Inp label="Observação" maxLength={200} errorMsg="A observação deve ter no máximo 200 caracteres." value={ni.obs} onChange={e=>setNi({...ni,obs:e.target.value})}/>
                   <Btn full variant="dark" onClick={addInadim}>Registrar inadimplência</Btn>
                 </Card>
                 <Sec title="Meus registros"/>
@@ -376,8 +408,8 @@
                   <span style={{fontSize:13,color:C.black,fontWeight:500}}>Consulte o histórico de inadimplência registrado por outros motoristas da rede VanPass.</span>
                 </div>
                 <Card>
-                  <Inp label="Buscar por CPF" placeholder="000.000.000-00" value={busca.cpf} onChange={e=>setBusca({...busca,cpf:e.target.value})}/>
-                  <Inp label="Ou buscar por nome" value={busca.nome} onChange={e=>setBusca({...busca,nome:e.target.value})}/>
+                  <Inp label="Buscar por CPF" placeholder="000.000.000-00" mask="cpf" value={busca.cpf} onChange={e=>setBusca({...busca,cpf:e.target.value})}/>
+                  <Inp label="Ou buscar por nome" maxLength={80} value={busca.nome} onChange={e=>setBusca({...busca,nome:e.target.value})}/>
                 </Card>
                 {(busca.cpf||busca.nome)&&bRes.length===0&&(
                   <div style={{background:C.success.bg,border:`1px solid ${C.success.border}`,color:C.success.text,padding:"12px 16px",borderRadius:10,fontSize:14}}>
@@ -476,9 +508,9 @@
         <div style={{maxWidth:420,margin:"0 auto",padding:"32px 20px"}}>
           <div style={{textAlign:"center",marginBottom:32}}><Logo size={48}/><p style={{color:C.textMuted,fontSize:14,marginTop:8}}>Encontre a van ideal para seu filho</p></div>
           <Flash text={msg}/>
-          <Inp label="CPF" placeholder="000.000.000-00" value={form.cpf} onChange={e=>setForm({...form,cpf:e.target.value})}/>
-          <Inp label="Nome completo" value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})}/>
-          <Inp label="E-mail (opcional)" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+          <Inp label="CPF" placeholder="000.000.000-00" mask="cpf" validate="cpf" required errorMsg="Informe o seu CPF." value={form.cpf} onChange={e=>setForm({...form,cpf:e.target.value})}/>
+          <Inp label="Nome completo" required minLength={2} maxLength={80} errorMsg="Informe o nome completo." value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})}/>
+          <Inp label="E-mail (opcional)" type="email" validate="email" maxLength={120} placeholder="seunome@exemplo.com" errorMsg="Informe um e-mail válido (ex: nome@dominio.com)." value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
           <Btn full onClick={login}>Entrar</Btn>
         </div>
       );
@@ -504,8 +536,8 @@
               <div>
                 <Card>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                    <Inp label="Escola" placeholder="Nome da escola" value={busca.escola} onChange={e=>setBusca({...busca,escola:e.target.value})}/>
-                    <Inp label="Cidade" value={busca.cidade} onChange={e=>setBusca({...busca,cidade:e.target.value})}/>
+                    <Inp label="Escola" placeholder="Nome da escola" maxLength={80} value={busca.escola} onChange={e=>setBusca({...busca,escola:e.target.value})}/>
+                    <Inp label="Cidade" maxLength={60} value={busca.cidade} onChange={e=>setBusca({...busca,cidade:e.target.value})}/>
                   </div>
                 </Card>
                 <Sec title={`${resultados.length} van(s) encontrada(s)`}/>

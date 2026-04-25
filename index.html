@@ -229,7 +229,7 @@
     function AppMotorista({ db, setDB }) {
       const [tela,setTela] = useState("login");
       const [mot,setMot] = useState(null);
-      const [form,setForm] = useState({cnpj:"",empresa:"",cidade:"",escola:"",vagasTotal:"",valor:""});
+      const [form,setForm] = useState({cnpj:"",empresa:"",cidade:"",escola:"",vagasTotal:"",valor:"",email:'',senha:''});
       const [sub,setSub] = useState("dashboard");
       const [msg,setMsg] = useState("");
       const [nc,setNc] = useState({paiCpf:"",paiNome:"",aluno:"",valor:""});
@@ -239,16 +239,41 @@
 
       const flash = m => { setMsg(m); setTimeout(()=>setMsg(""),2800); };
 
-      const login = () => {
-        if (!form.cnpj||!form.empresa) return flash("Preencha CNPJ e nome da empresa.");
-        let m = db.motoristas.find(x=>x.cnpj===form.cnpj);
-        if (!m) {
-          if (!form.cidade||!form.escola||!form.vagasTotal||!form.valor) return flash("Primeiro acesso: preencha todos os campos.");
-          m = {id:"m"+Date.now(),cnpj:form.cnpj,empresa:form.empresa,cidade:form.cidade,escola:form.escola,vagas:parseInt(form.vagasTotal),vagasTotal:parseInt(form.vagasTotal),valor:parseFloat(form.valor)};
-          const nd={...db,motoristas:[...db.motoristas,m]};
-          setDB(nd); saveDB(nd);
+      const login = async () => {
+        if (!form.cnpj||!form.empresa||!form.email||!form.senha) return flash("Preencha CNPJ, nome da empresa, e-mail e senha.");
+        if (form.senha.length < 8) return flash("A senha deve ter no mínimo 8 caracteres.");
+        try {
+          let { data: authData, error: loginError } = await supabase.auth.signInWithPassword({ email: form.email, password: form.senha });
+          if (loginError) {
+            if (loginError.message && (loginError.message.toLowerCase().includes("invalid") || loginError.message.toLowerCase().includes("credentials"))) {
+              if (!form.cidade||!form.escola||!form.vagasTotal||!form.valor) return flash("Primeiro acesso: preencha cidade, escola, vagas e valor para criar sua conta.");
+              const { data: signupData, error: signupError } = await supabase.auth.signUp({ email: form.email, password: form.senha });
+              if (signupError) {
+                if (signupError.message.includes("already registered")) return flash("Este e-mail já está cadastrado. Verifique sua senha.");
+                return flash("Erro ao cadastrar: " + signupError.message);
+              }
+              authData = signupData;
+              const m = {id:authData.user.id, cnpj:form.cnpj, empresa:form.empresa, cidade:form.cidade, escola:form.escola, vagas:parseInt(form.vagasTotal), vagasTotal:parseInt(form.vagasTotal), valor:parseFloat(form.valor)};
+              const nd = {...db, motoristas:[...db.motoristas, m]};
+              setDB(nd); saveDB(nd);
+              currentUser = authData.user; currentUserType = "motorista";
+              setMot(m); setTela("app");
+              return flash("Cadastro realizado! Bem-vindo, " + form.empresa + ".");
+            }
+            return flash("Erro ao fazer login: " + loginError.message);
+          }
+          currentUser = authData.user; currentUserType = "motorista";
+          let m = db.motoristas.find(x=>x.cnpj===form.cnpj || x.id===authData.user.id);
+          if (!m) {
+            if (!form.cidade||!form.escola||!form.vagasTotal||!form.valor) return flash("Complete os dados da van: cidade, escola, vagas e valor.");
+            m = {id:authData.user.id, cnpj:form.cnpj, empresa:form.empresa, cidade:form.cidade, escola:form.escola, vagas:parseInt(form.vagasTotal), vagasTotal:parseInt(form.vagasTotal), valor:parseFloat(form.valor)};
+            const nd = {...db, motoristas:[...db.motoristas, m]};
+            setDB(nd); saveDB(nd);
+          }
+          setMot(m); setTela("app");
+        } catch (e) {
+          flash("Erro de conexão: " + e.message);
         }
-        setMot(m); setTela("app");
       };
 
       const meusCont = db.contratos.filter(c=>c.motoristaId===mot?.id);
@@ -511,7 +536,7 @@
     function AppPais({ db, setDB }) {
       const [tela,setTela] = useState("login");
       const [pai,setPai] = useState(null);
-      const [form,setForm] = useState({cpf:"",nome:"",email:""});
+      const [form,setForm] = useState({cpf:"",nome:"",email:"",senha:''});
       const [sub,setSub] = useState("buscar");
       const [msg,setMsg] = useState("");
       const [busca,setBusca] = useState({escola:"",cidade:""});
@@ -520,11 +545,39 @@
 
       const flash = m => { setMsg(m); setTimeout(()=>setMsg(""),2800); };
 
-      const login = () => {
-        if (!form.cpf||!form.nome) return flash("Preencha CPF e nome.");
-        let p=db.pais.find(x=>x.cpf===form.cpf);
-        if (!p){p={id:"p"+Date.now(),cpf:form.cpf,nome:form.nome,email:form.email};const nd={...db,pais:[...db.pais,p]};setDB(nd);saveDB(nd);}
-        setPai(p);setTela("app");
+      const login = async () => {
+        if (!form.cpf||!form.nome||!form.email||!form.senha) return flash("Preencha CPF, nome, e-mail e senha.");
+        if (form.senha.length < 8) return flash("A senha deve ter no mínimo 8 caracteres.");
+        try {
+          let { data: authData, error: loginError } = await supabase.auth.signInWithPassword({ email: form.email, password: form.senha });
+          if (loginError) {
+            if (loginError.message && (loginError.message.toLowerCase().includes("invalid") || loginError.message.toLowerCase().includes("credentials"))) {
+              const { data: signupData, error: signupError } = await supabase.auth.signUp({ email: form.email, password: form.senha });
+              if (signupError) {
+                if (signupError.message.includes("already registered")) return flash("Este e-mail já está cadastrado. Verifique sua senha.");
+                return flash("Erro ao cadastrar: " + signupError.message);
+              }
+              authData = signupData;
+              const p = {id:authData.user.id, cpf:form.cpf, nome:form.nome, email:form.email};
+              const nd = {...db, pais:[...db.pais, p]};
+              setDB(nd); saveDB(nd);
+              currentUser = authData.user; currentUserType = "pai";
+              setPai(p); setTela("app");
+              return flash("Cadastro realizado! Bem-vindo, " + form.nome + ".");
+            }
+            return flash("Erro ao fazer login: " + loginError.message);
+          }
+          currentUser = authData.user; currentUserType = "pai";
+          let p = db.pais.find(x=>x.cpf===form.cpf || x.id===authData.user.id);
+          if (!p) {
+            p = {id:authData.user.id, cpf:form.cpf, nome:form.nome, email:form.email};
+            const nd = {...db, pais:[...db.pais, p]};
+            setDB(nd); saveDB(nd);
+          }
+          setPai(p); setTela("app");
+        } catch (e) {
+          flash("Erro de conexão: " + e.message);
+        }
       };
 
       const resultados=db.motoristas.filter(m=>(!busca.escola||m.escola.toLowerCase().includes(busca.escola.toLowerCase()))&&(!busca.cidade||m.cidade.toLowerCase().includes(busca.cidade.toLowerCase())));

@@ -288,6 +288,7 @@
         } catch (e) { flash("Erro de conexão: " + e.message); }
         finally { setCarregando(false); }
       };
+      /* LOGIN SOCIAL DESABILITADO - configurar em Supabase > Authentication > Providers
 
       // ===== LOGIN SOCIAL (Google / Apple) =====
       const loginSocial = async (provider) => {
@@ -301,6 +302,7 @@
         } catch (e) { flash("Erro: " + e.message); }
         finally { setCarregando(false); }
       };
+      */
 
       // ===== CADASTRO (novo motorista) =====
       const cadastrar = async () => {
@@ -395,6 +397,7 @@
           <Inp label="E-mail" type="email" required maxLength={120} placeholder="seunome@exemplo.com" errorMsg="Informe um e-mail válido." value={loginForm.email} onChange={e=>setLoginForm({...loginForm,email:e.target.value})}/>
           <Inp label="Senha" type="password" required minLength={8} maxLength={60} errorMsg="A senha deve ter no mínimo 8 caracteres." value={loginForm.senha} onChange={e=>setLoginForm({...loginForm,senha:e.target.value})}/>
           <Btn full type="submit" disabled={carregando}>{carregando?"Entrando...":"Entrar"}</Btn>
+          {/* LOGIN SOCIAL DESABILITADO
           <div style={{margin:"20px 0",display:"flex",alignItems:"center",gap:12}}>
             <div style={{flex:1,height:1,background:C.border}}/>
             <span style={{fontSize:12,color:C.textMuted}}>ou continue com</span>
@@ -410,6 +413,7 @@
               Continuar com Apple
             </button>
           </div>
+          */}
           <div style={{marginTop:20,textAlign:"center",fontSize:13,color:C.textMuted}}>
             Não tem conta?{" "}
             <span onClick={()=>setTela("cadastro")} style={{color:C.black,fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>Criar uma conta</span>
@@ -698,6 +702,7 @@
         } catch (e) { flash("Erro de conexão: " + e.message); }
         finally { setCarregando(false); }
       };
+      /* LOGIN SOCIAL DESABILITADO - configurar em Supabase > Authentication > Providers
 
       // ===== LOGIN SOCIAL (Google / Apple) =====
       const loginSocial = async (provider) => {
@@ -711,6 +716,7 @@
         } catch (e) { flash("Erro: " + e.message); }
         finally { setCarregando(false); }
       };
+      */
 
       // ===== CADASTRO (novo pai/responsável) =====
       const cadastrar = async () => {
@@ -769,6 +775,7 @@
           <Inp label="E-mail" type="email" required maxLength={120} placeholder="seunome@exemplo.com" errorMsg="Informe um e-mail válido." value={loginForm.email} onChange={e=>setLoginForm({...loginForm,email:e.target.value})}/>
           <Inp label="Senha" type="password" required minLength={8} maxLength={60} errorMsg="A senha deve ter no mínimo 8 caracteres." value={loginForm.senha} onChange={e=>setLoginForm({...loginForm,senha:e.target.value})}/>
           <Btn full type="submit" disabled={carregando}>{carregando?"Entrando...":"Entrar"}</Btn>
+          {/* LOGIN SOCIAL DESABILITADO
           <div style={{margin:"20px 0",display:"flex",alignItems:"center",gap:12}}>
             <div style={{flex:1,height:1,background:C.border}}/>
             <span style={{fontSize:12,color:C.textMuted}}>ou continue com</span>
@@ -784,6 +791,7 @@
               Continuar com Apple
             </button>
           </div>
+          */}
           <div style={{marginTop:20,textAlign:"center",fontSize:13,color:C.textMuted}}>
             Não tem conta?{" "}
             <span onClick={()=>setTela("cadastro")} style={{color:C.black,fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>Criar uma conta</span>

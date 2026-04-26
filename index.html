@@ -166,6 +166,7 @@
     const Inp = ({ label, mask, validate, errorMsg, onChange, onBlur, ...props }) => {
       const [invalid, setInvalid] = React.useState(false);
       const [errText, setErrText] = React.useState('');
+      const [showPass, setShowPass] = React.useState(false);
       const ref = React.useRef(null);
       const v = validate && validators[validate] ? validators[validate] : {};
       const doValidate = (t) => {
@@ -173,9 +174,9 @@
         if (t.validity.valueMissing) t.setCustomValidity(errorMsg || 'Este campo é obrigatório.');
         else if (t.validity.typeMismatch && props.type==='email') t.setCustomValidity(v.invalid || 'Informe um e-mail válido.');
         else if (t.validity.patternMismatch) t.setCustomValidity(v.invalid || errorMsg || 'Formato inválido.');
-        else if (t.validity.rangeUnderflow) t.setCustomValidity(`O valor mínimo é ${props.min}.`);
-        else if (t.validity.rangeOverflow) t.setCustomValidity(`O valor máximo é ${props.max}.`);
-        else if (t.validity.tooShort) t.setCustomValidity(`Preencha com pelo menos ${props.minLength} caracteres.`);
+        else if (t.validity.rangeUnderflow) t.setCustomValidity('O valor mínimo é ' + props.min + '.');
+        else if (t.validity.rangeOverflow) t.setCustomValidity('O valor máximo é ' + props.max + '.');
+        else if (t.validity.tooShort) t.setCustomValidity('Preencha com pelo menos ' + props.minLength + ' caracteres.');
         else if (t.validity.stepMismatch) t.setCustomValidity('Informe um valor numérico válido.');
         else t.setCustomValidity('');
         if (!t.validity.valid) {
@@ -203,12 +204,17 @@
         }
         if (onBlur) onBlur(e);
       };
+      const isPassword = props.type === 'password';
+      const inputType = isPassword && showPass ? 'text' : (props.type || 'text');
       return (
         <div style={{marginBottom:12}}>
           {label && <div style={{fontSize:12,color:C.textMuted,marginBottom:4,fontWeight:500}}>
             {label}{props.required && <span style={{color:'#C0392B',marginLeft:2,fontWeight:700}}>*</span>}
           </div>}
-          <input ref={ref} {...props} {...(v.pattern?{pattern:v.pattern}:{})} {...(v.title?{title:v.title}:(props.title?{}:{}))} onChange={handleChange} onInvalid={handleInvalid} onBlur={handleBlur} style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:`1px solid ${invalid ? '#C0392B' : C.border}`,borderRadius:8,fontSize:14,fontFamily:"inherit",background:invalid ? '#FFF5F5' : C.white,color:C.black,outline:invalid?'2px solid #C0392B':undefined,outlineOffset:invalid?'-1px':undefined}}/>
+          <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+            <input ref={ref} {...props} type={inputType} {...(v.pattern?{pattern:v.pattern}:{})} {...(v.title?{title:v.title}:(props.title?{}:{}))} onChange={handleChange} onInvalid={handleInvalid} onBlur={handleBlur} style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",paddingRight:isPassword?"38px":"12px",border:'1px solid ' + (invalid ? '#C0392B' : C.border),borderRadius:8,fontSize:14,fontFamily:"inherit",background:invalid ? '#FFF5F5' : C.white,color:C.black,outline:invalid?'2px solid #C0392B':undefined,outlineOffset:invalid?'-1px':undefined}}/>
+            {isPassword && <button type="button" onClick={()=>setShowPass(s=>!s)} style={{position:'absolute',right:8,background:'none',border:'none',cursor:'pointer',padding:'4px',color:C.textMuted,fontSize:16,lineHeight:1}} title={showPass?'Ocultar senha':'Mostrar senha'}>{showPass ? '🙈' : '👁️'}</button>}
+          </div>
           {invalid && errText && <div style={{color:'#C0392B',fontSize:11,marginTop:3,fontWeight:500}}>{errText}</div>}
         </div>
       );
@@ -309,7 +315,7 @@
         try {
           setCarregando(true);
           // 1. Criar conta Supabase Auth
-          const { data: authData, error: signupError } = await supabase.auth.signUp({ email: form.email, password: form.senha });
+          const { data: authData, error: signupError } = await supabase.auth.signUp({ email: form.email, password: form.senha, options: { emailRedirectTo: null } });
           if (signupError) { flash("Erro ao criar conta: " + signupError.message); return; }
           // 2. Salvar perfil na tabela motoristas
           const { error: profileError } = await supabase.from('motoristas').insert([{
@@ -320,11 +326,10 @@
             escola_atendida: form.escola,
             vagas_total: parseInt(form.vagasTotal)||0,
             vagas_disponiveis: parseInt(form.vagasTotal)||0,
-            valor_mensal: parseFloat(form.valor)||0,
-            email: form.email
+            valor_mensal: parseFloat(form.valor)||0
           }]);
-          if (profileError) { flash("Conta criada! Aguarde confirmação por e-mail."); return; }
-          flash("Cadastro realizado! Verifique seu e-mail para confirmar a conta.");
+          if (profileError) { flash("Erro ao salvar perfil: " + profileError.message); return; }
+          flash("Cadastro realizado com sucesso! Faça login para continuar.");
           setTela("login");
         } catch (e) { flash("Erro: " + e.message); }
         finally { setCarregando(false); }
@@ -344,8 +349,7 @@
             escola_atendida: form.escola,
             vagas_total: parseInt(form.vagasTotal)||0,
             vagas_disponiveis: parseInt(form.vagasTotal)||0,
-            valor_mensal: parseFloat(form.valor)||0,
-            email: user.email
+            valor_mensal: parseFloat(form.valor)||0
           }]);
           if (error) { flash("Erro ao salvar perfil: " + error.message); return; }
           const m = { id: user.id, cnpj: form.cnpj, empresa: form.empresa, cidade: form.cidade, escola: form.escola, vagas: parseInt(form.vagasTotal)||0, vagasTotal: parseInt(form.vagasTotal)||0, valor: parseFloat(form.valor)||0 };
@@ -726,17 +730,16 @@
           const { data: cpfExiste } = await supabase.from('pais').select('id').eq('cpf', form.cpf).maybeSingle();
           if (cpfExiste) { flash("Este CPF já possui um cadastro. Faça login com o e-mail vinculado."); return; }
           // Criar conta Supabase Auth
-          const { data: authData, error: signupError } = await supabase.auth.signUp({ email: form.email, password: form.senha });
+          const { data: authData, error: signupError } = await supabase.auth.signUp({ email: form.email, password: form.senha, options: { emailRedirectTo: null } });
           if (signupError) { flash("Erro ao criar conta: " + signupError.message); return; }
           // Salvar perfil na tabela pais
           const { error: profileError } = await supabase.from('pais').insert([{
             user_id: authData.user.id,
             cpf: form.cpf,
-            nome: form.nome,
-            email: form.email
+            nome: form.nome
           }]);
-          if (profileError) { flash("Conta criada! Aguarde confirmação por e-mail."); return; }
-          flash("Cadastro realizado! Verifique seu e-mail para confirmar a conta.");
+          if (profileError) { flash("Erro ao salvar perfil: " + profileError.message); return; }
+          flash("Cadastro realizado com sucesso! Faça login para continuar.");
           setTela("login");
         } catch (e) { flash("Erro: " + e.message); }
         finally { setCarregando(false); }
@@ -754,8 +757,7 @@
           const { error } = await supabase.from('pais').insert([{
             user_id: user.id,
             cpf: form.cpf,
-            nome: form.nome,
-            email: user.email
+            nome: form.nome
           }]);
           if (error) { flash("Erro ao salvar perfil: " + error.message); return; }
           setPai({ id: user.id, cpf: form.cpf, nome: form.nome, email: user.email });

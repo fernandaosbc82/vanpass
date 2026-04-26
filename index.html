@@ -17,6 +17,7 @@
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+    input:invalid, select:invalid { box-shadow: none; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0"></script>
   </head>
@@ -163,34 +164,45 @@
       email: { title: "Digite um e-mail válido (ex: nome@dominio.com)", invalid: "Informe um e-mail válido (ex: nome@dominio.com)." }
     };
     const Inp = ({ label, mask, validate, errorMsg, onChange, ...props }) => {
+      const [invalid, setInvalid] = React.useState(false);
+      const [errText, setErrText] = React.useState('');
       const v = validate && validators[validate] ? validators[validate] : {};
       const handleChange = e => {
         if (mask && masks[mask]) e.target.value = masks[mask](e.target.value);
-        e.target.setCustomValidity("");
+        e.target.setCustomValidity('');
+        setInvalid(false);
+        setErrText('');
         if (onChange) onChange(e);
       };
       const handleInvalid = e => {
         const t = e.target;
-        if (t.validity.valueMissing) t.setCustomValidity(errorMsg || "Este campo é obrigatório.");
-        else if (t.validity.typeMismatch && props.type==="email") t.setCustomValidity(v.invalid || "Informe um e-mail válido.");
-        else if (t.validity.patternMismatch) t.setCustomValidity(v.invalid || errorMsg || "Formato inválido.");
+        if (t.validity.valueMissing) t.setCustomValidity(errorMsg || 'Este campo é obrigatório.');
+        else if (t.validity.typeMismatch && props.type==='email') t.setCustomValidity(v.invalid || 'Informe um e-mail válido.');
+        else if (t.validity.patternMismatch) t.setCustomValidity(v.invalid || errorMsg || 'Formato inválido.');
         else if (t.validity.rangeUnderflow) t.setCustomValidity(`O valor mínimo é ${props.min}.`);
         else if (t.validity.rangeOverflow) t.setCustomValidity(`O valor máximo é ${props.max}.`);
         else if (t.validity.tooShort) t.setCustomValidity(`Preencha com pelo menos ${props.minLength} caracteres.`);
-        else if (t.validity.stepMismatch) t.setCustomValidity("Informe um valor numérico válido.");
-        else t.setCustomValidity(errorMsg || "Valor inválido.");
+        else if (t.validity.stepMismatch) t.setCustomValidity('Informe um valor numérico válido.');
+        else t.setCustomValidity(errorMsg || 'Valor inválido.');
+        setInvalid(true);
+        setErrText(t.validationMessage);
       };
       return (
         <div style={{marginBottom:12}}>
-          {label && <div style={{fontSize:12,color:C.textMuted,marginBottom:4,fontWeight:500}}>{label}</div>}
-          <input {...props} {...(v.pattern?{pattern:v.pattern}:{})} {...(v.title?{title:v.title}:(props.title?{}:{}))} onChange={handleChange} onInvalid={handleInvalid} style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:"inherit",background:C.white,color:C.black}}/>
+          {label && <div style={{fontSize:12,color:C.textMuted,marginBottom:4,fontWeight:500}}>
+            {label}{props.required && <span style={{color:'#C0392B',marginLeft:2,fontWeight:700}}>*</span>}
+          </div>}
+          <input {...props} {...(v.pattern?{pattern:v.pattern}:{})} {...(v.title?{title:v.title}:(props.title?{}:{}))} onChange={handleChange} onInvalid={handleInvalid} style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:`1px solid ${invalid ? '#C0392B' : C.border}`,borderRadius:8,fontSize:14,fontFamily:"inherit",background:invalid ? '#FFF5F5' : C.white,color:C.black,outline:invalid?'none':undefined}}/>
+          {invalid && errText && <div style={{color:'#C0392B',fontSize:11,marginTop:3,fontWeight:500}}>{errText}</div>}
         </div>
       );
     };
 
     const Sel = ({ label, children, ...props }) => (
       <div style={{marginBottom:12}}>
-        {label && <div style={{fontSize:12,color:C.textMuted,marginBottom:4,fontWeight:500}}>{label}</div>}
+        {label && <div style={{fontSize:12,color:C.textMuted,marginBottom:4,fontWeight:500}}>
+          {label}{props.required && <span style={{color:'#C0392B',marginLeft:2,fontWeight:700}}>*</span>}
+        </div>}
         <select {...props} style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:"inherit",background:C.white,color:C.black}}>{children}</select>
       </div>
     );

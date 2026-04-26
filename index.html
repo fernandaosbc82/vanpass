@@ -339,7 +339,7 @@
       const bRes=(busca.cpf||busca.nome)?db.inadimplentes.filter(i=>i.cpf.includes(busca.cpf)&&i.nome.toLowerCase().includes(busca.nome.toLowerCase())):[];
 
       if (tela==="login") return (
-        <form noValidate style={{maxWidth:420,margin:"0 auto",padding:"32px 20px"}} onSubmit={e=>{e.preventDefault();login();}}>
+        <form style={{maxWidth:420,margin:"0 auto",padding:"32px 20px"}} onSubmit={e=>{e.preventDefault(); const f=e.currentTarget; if(!f.checkValidity()){[...f.querySelectorAll("input,select")].forEach(i=>{if(!i.validity.valid)i.dispatchEvent(new Event("invalid",{bubbles:false,cancelable:true}));}); return;} login();}}>
           <div style={{textAlign:"center",marginBottom:32}}><Logo size={48}/><p style={{color:C.textMuted,fontSize:14,marginTop:8}}>Área do motorista</p></div>
           <Flash text={msg}/>
           <Inp label="CNPJ" placeholder="00.000.000/0001-00" mask="cnpj" validate="cnpj" required errorMsg="Informe o CNPJ da empresa." value={form.cnpj} onChange={e=>setForm({...form,cnpj:e.target.value})}/>
@@ -626,7 +626,7 @@
       const minhasSol=(db.solicitacoes||[]).filter(s=>s.paiId===pai?.id);
 
       if (tela==="login") return (
-        <form noValidate style={{maxWidth:420,margin:"0 auto",padding:"32px 20px"}} onSubmit={e=>{e.preventDefault();login();}}>
+        <form style={{maxWidth:420,margin:"0 auto",padding:"32px 20px"}} onSubmit={e=>{e.preventDefault(); const f=e.currentTarget; if(!f.checkValidity()){[...f.querySelectorAll("input,select")].forEach(i=>{if(!i.validity.valid)i.dispatchEvent(new Event("invalid",{bubbles:false,cancelable:true}));}); return;} login();}}>
           <div style={{textAlign:"center",marginBottom:32}}><Logo size={48}/><p style={{color:C.textMuted,fontSize:14,marginTop:8}}>Encontre a van ideal para seu filho</p></div>
           <Flash text={msg}/>
           <Inp label="CPF" placeholder="000.000.000-00" mask="cpf" validate="cpf" required errorMsg="Informe o seu CPF." value={form.cpf} onChange={e=>setForm({...form,cpf:e.target.value})}/>

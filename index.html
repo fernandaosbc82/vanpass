@@ -282,9 +282,9 @@
           const { data, error } = await supabase.auth.signInWithPassword({ email: loginForm.email, password: loginForm.senha });
           if (error) { flash("E-mail ou senha inválidos. Verifique seus dados."); return; }
           // Buscar perfil do motorista
-          const { data: perfil } = await supabase.from('motoristas').select('*').eq('user_id', data.user.id).maybeSingle();
+          const { data: perfil } = await supabase.from('motoristas').select('*').eq('id', data.user.id).maybeSingle();
           if (perfil) {
-            const m = { id: perfil.id, cnpj: perfil.cnpj, empresa: perfil.empresa, cidade: perfil.cidade, escola: perfil.escola_atendida, vagas: perfil.vagas_disponiveis ?? 0, vagasTotal: perfil.vagas_total, valor: perfil.valor_mensal };
+            const m = { id: perfil.id, cnpj: perfil.cnpj, empresa: perfil.empresa, cidade: perfil.cidade, escola: perfil.escola, vagas: perfil.vagas_disponiveis ?? 0, vagasTotal: perfil.vagas_total, valor: perfil.valor_mensal };
             setMot(m); setTela("app");
           } else {
             // Usuário autenticado mas sem perfil - solicitar dados
@@ -319,14 +319,14 @@
           if (signupError) { flash("Erro ao criar conta: " + signupError.message); return; }
           // 2. Salvar perfil na tabela motoristas
           const { error: profileError } = await supabase.from('motoristas').insert([{
-            user_id: authData.user.id,
+            id: authData.user.id,
             cnpj: form.cnpj,
             empresa: form.empresa,
             cidade: form.cidade,
-            escola_atendida: form.escola,
+            escola: form.escola,
             vagas_total: parseInt(form.vagasTotal)||0,
-            vagas_disponiveis: parseInt(form.vagasTotal)||0,
-            valor_mensal: parseFloat(form.valor)||0
+            vagas: parseInt(form.vagasTotal)||0,
+            valor: parseFloat(form.valor)||0
           }]);
           if (profileError) { flash("Erro ao salvar perfil: " + profileError.message); return; }
           flash("Cadastro realizado com sucesso! Faça login para continuar.");
@@ -342,14 +342,14 @@
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) { flash("Sessão expirada. Faça login novamente."); setTela("login"); return; }
           const { error } = await supabase.from('motoristas').insert([{
-            user_id: user.id,
+            id: user.id,
             cnpj: form.cnpj,
             empresa: form.empresa,
             cidade: form.cidade,
-            escola_atendida: form.escola,
+            escola: form.escola,
             vagas_total: parseInt(form.vagasTotal)||0,
-            vagas_disponiveis: parseInt(form.vagasTotal)||0,
-            valor_mensal: parseFloat(form.valor)||0
+            vagas: parseInt(form.vagasTotal)||0,
+            valor: parseFloat(form.valor)||0
           }]);
           if (error) { flash("Erro ao salvar perfil: " + error.message); return; }
           const m = { id: user.id, cnpj: form.cnpj, empresa: form.empresa, cidade: form.cidade, escola: form.escola, vagas: parseInt(form.vagasTotal)||0, vagasTotal: parseInt(form.vagasTotal)||0, valor: parseFloat(form.valor)||0 };
@@ -695,7 +695,7 @@
           const { data, error } = await supabase.auth.signInWithPassword({ email: loginForm.email, password: loginForm.senha });
           if (error) { flash("E-mail ou senha inválidos. Verifique seus dados."); return; }
           // Buscar perfil do pai
-          const { data: perfil } = await supabase.from('pais').select('*').eq('user_id', data.user.id).maybeSingle();
+          const { data: perfil } = await supabase.from('pais').select('*').eq('id', data.user.id).maybeSingle();
           if (perfil) {
             setPai({ id: perfil.id, cpf: perfil.cpf, nome: perfil.nome, email: data.user.email });
             setTela("app");
@@ -734,7 +734,7 @@
           if (signupError) { flash("Erro ao criar conta: " + signupError.message); return; }
           // Salvar perfil na tabela pais
           const { error: profileError } = await supabase.from('pais').insert([{
-            user_id: authData.user.id,
+            id: authData.user.id,
             cpf: form.cpf,
             nome: form.nome
           }]);
@@ -755,7 +755,7 @@
           const { data: cpfExiste } = await supabase.from('pais').select('id').eq('cpf', form.cpf).maybeSingle();
           if (cpfExiste) { flash("Este CPF já possui um cadastro vinculado a outro e-mail."); return; }
           const { error } = await supabase.from('pais').insert([{
-            user_id: user.id,
+            id: user.id,
             cpf: form.cpf,
             nome: form.nome
           }]);

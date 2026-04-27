@@ -388,7 +388,7 @@
         setDB(nd);saveDB(nd);setPf({contratoId:"",mes:"",status:"pago"});flash("Pagamento registrado!");
       };
 
-      const bRes=(busca.cpf||busca.nome)?db.inadimplentes.filter(i=>i.cpf.includes(busca.cpf)&&i.nome.toLowerCase().includes(busca.nome.toLowerCase())):[];
+      const bRes=(busca.cpf||busca.nome)?db.inadimplentes.filter(i=>i.motoristaId===mot?.id&&(i.cpf||'').includes(busca.cpf||'')&&(i.nome||'').toLowerCase().includes((busca.nome||'').toLowerCase())):minhasInadim;
 
       // ===== TELA: LOGIN =====
       if (tela==="login") return (
@@ -843,6 +843,8 @@
 
       const navItems=[{id:"buscar",label:"Buscar vans"},{id:"avaliar",label:"Avaliar motorista"},{id:"solicitar",label:"Solicitar vaga"},{id:"minhas",label:"Minhas solicitações"}];
 
+      if (!pai) return null;
+
       return (
         <div>
           <div style={{background:C.black,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -962,20 +964,34 @@
     }
 
     function App() {
-      const [modo,setModo] = useState(null);
+      const [modo,setModo] = useState(() => localStorage.getItem('vanpass_modo') || null);
       const [db,setDB] = useState(loadDB);
+      const { useEffect } = React;
+
+      useEffect(() => {
+        // Restaurar sessão ao recarregar página
+        const savedModo = localStorage.getItem('vanpass_modo');
+        if (savedModo && !modo) {
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) { setModo(savedModo); }
+            else { localStorage.removeItem('vanpass_modo'); setModo(null); }
+          });
+        }
+      }, []);
+
+      const handleSetModo = (m) => { if (m) localStorage.setItem('vanpass_modo', m); else localStorage.removeItem('vanpass_modo'); setModo(m); };
 
       if (!modo) return (
         <div style={{minHeight:"100vh",background:C.black,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,gap:32}}>
           <Logo size={56} dark/>
           <p style={{color:"#666",fontSize:14,margin:0,textAlign:"center"}}>Selecione o seu perfil para continuar</p>
           <div style={{display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center"}}>
-            <div onClick={()=>setModo("motorista")} style={{background:"#111",border:`2px solid ${C.yellow}`,borderRadius:16,padding:"28px 32px",cursor:"pointer",textAlign:"center",minWidth:160}}>
+            <div onClick={()=>handleSetModo("motorista")} style={{background:"#111",border:`2px solid ${C.yellow}`,borderRadius:16,padding:"28px 32px",cursor:"pointer",textAlign:"center",minWidth:160}}>
               <div style={{fontSize:36,marginBottom:10}}>🚐</div>
               <div style={{color:C.yellow,fontWeight:800,fontSize:16,letterSpacing:-0.5}}>Sou motorista</div>
               <div style={{color:"#666",fontSize:12,marginTop:4}}>Gerenciar contratos e comunidade</div>
             </div>
-            <div onClick={()=>setModo("pais")} style={{background:"#111",border:`1px solid #333`,borderRadius:16,padding:"28px 32px",cursor:"pointer",textAlign:"center",minWidth:160}}>
+            <div onClick={()=>handleSetModo("pais")} style={{background:"#111",border:`1px solid #333`,borderRadius:16,padding:"28px 32px",cursor:"pointer",textAlign:"center",minWidth:160}}>
               <div style={{fontSize:36,marginBottom:10}}>👨‍👩‍👧</div>
               <div style={{color:C.white,fontWeight:800,fontSize:16,letterSpacing:-0.5}}>Sou pai/mãe</div>
               <div style={{color:"#666",fontSize:12,marginTop:4}}>Buscar vans e solicitar vagas</div>
@@ -988,7 +1004,7 @@
         <div style={{fontFamily:"system-ui,sans-serif",maxWidth:680,margin:"0 auto",background:C.white,minHeight:"100vh"}}>
           {modo==="motorista"?<AppMotorista db={db} setDB={setDB}/>:<AppPais db={db} setDB={setDB}/>}
           <div style={{background:C.black,padding:"10px 20px",display:"flex",justifyContent:"center"}}>
-            <button onClick={()=>setModo(null)} style={{background:"none",border:"none",color:"#555",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>← Trocar perfil</button>
+            <button onClick={()=>handleSetModo(null)} style={{background:"none",border:"none",color:"#555",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>← Trocar perfil</button>
           </div>
         </div>
       );

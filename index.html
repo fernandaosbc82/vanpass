@@ -584,7 +584,7 @@
                     <Inp label="Meses em atraso" type="number" min={1} max={120} step={1} required errorMsg="Informe a quantidade de meses em atraso." value={ni.meses} onChange={e=>setNi({...ni,meses:e.target.value})}/>
                   </div>
                   <Inp label="Observação" maxLength={200} errorMsg="A observação deve ter no máximo 200 caracteres." value={ni.obs} onChange={e=>setNi({...ni,obs:e.target.value})}/>
-                  <Btn full variant="dark" onClick={addInadim}>Registrar inadimplência</Btn>
+                  <Btn full variant="dark" onClick={addInad}>Registrar inadimplência</Btn>
                 </Card>
                 <Sec title="Meus registros"/>
                 {minhasInadim.length===0&&<p style={{color:C.textMuted,fontSize:14}}>Nenhum registro.</p>}
@@ -842,6 +842,10 @@
       );
 
       const navItems=[{id:"buscar",label:"Buscar vans"},{id:"avaliar",label:"Avaliar motorista"},{id:"solicitar",label:"Solicitar vaga"},{id:"minhas",label:"Minhas solicitações"}];
+      const resultados = db.motoristas.filter(m =>
+        (!busca.escola || (m.escola||'').toLowerCase().includes((busca.escola||'').toLowerCase())) &&
+        (!busca.cidade || (m.cidade||'').toLowerCase().includes((busca.cidade||'').toLowerCase()))
+      );
 
       if (!pai) return null;
 
